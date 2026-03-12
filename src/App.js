@@ -1,14 +1,15 @@
 // ============================================================
-// App.jsx — Root component
+// App.jsx — Root component (fully responsive)
 // ============================================================
-// This is the top of the component tree. It:
-//   1. Calls useTodos() to get all state + actions
-//   2. Passes data DOWN to children via props
-//   3. Passes action functions DOWN so children can trigger updates
+// Layout:
+//   Desktop (>700px): Sidebar on left + Main panel on right
+//   Mobile  (≤700px): Full screen main + Bottom navigation bar
 //
-// Layout: two-column (Sidebar | Main)
+// NEW: useState for mobileDrawerOpen controls the slide-up
+// category drawer on mobile when user taps "Categories"
 // ============================================================
 
+import { useState } from "react";
 import "./App.css";
 import { useTodos, CATEGORIES } from "./hooks/useTodos";
 import TodoInput  from "./components/TodoInput";
@@ -24,11 +25,20 @@ function App() {
     addTodo, toggleTodo, deleteTodo, editTodo, clearCompleted,
   } = useTodos();
 
-  // Get the active category info for the heading
+  // Controls the mobile category drawer (slide up sheet)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const activeCatInfo = CATEGORIES.find((c) => c.id === activeCategory);
+
+  // When user picks a category from mobile drawer, close drawer too
+  const handleMobileCategorySelect = (catId) => {
+    setActiveCategory(catId);
+    setDrawerOpen(false);
+  };
 
   return (
     <div className="app-root">
+      {/* ---- Desktop Sidebar (hidden on mobile via CSS) ---- */}
       <Sidebar
         activeCategory={activeCategory}
         setActiveCategory={setActiveCategory}
@@ -54,6 +64,17 @@ function App() {
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
         </header>
+
+        {/* Mobile progress bar (only shown on mobile) */}
+        <div className="mobile-progress">
+          <div className="mobile-progress-row">
+            <span className="mobile-progress-label">{stats.progress}% complete</span>
+            <span className="mobile-progress-sub">{stats.active} remaining</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${stats.progress}%` }} />
+          </div>
+        </div>
 
         {/* Add task form */}
         <TodoInput onAdd={addTodo} />
@@ -103,7 +124,7 @@ function App() {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — desktop only */}
         {stats.total > 0 && (
           <footer className="main-footer">
             <span>{stats.active} task{stats.active !== 1 ? "s" : ""} remaining</span>
@@ -111,6 +132,100 @@ function App() {
           </footer>
         )}
       </main>
+
+      {/* ============================================================
+          MOBILE BOTTOM NAV BAR
+          Only visible on mobile (≤700px) via CSS display:none/flex
+          ============================================================ */}
+      <nav className="mobile-bottom-nav">
+        {/* Tasks tab */}
+        <button
+          className={`mobile-nav-btn ${filter !== "completed" && !drawerOpen ? "active" : ""}`}
+          onClick={() => { setFilter("all"); setDrawerOpen(false); }}
+        >
+          <span className="mobile-nav-icon">📋</span>
+          <span className="mobile-nav-label">Tasks</span>
+        </button>
+
+        {/* Active tab */}
+        <button
+          className={`mobile-nav-btn ${filter === "active" && !drawerOpen ? "active" : ""}`}
+          onClick={() => { setFilter("active"); setDrawerOpen(false); }}
+        >
+          <span className="mobile-nav-icon">⚡</span>
+          <span className="mobile-nav-label">Active</span>
+          {stats.active > 0 && <span className="mobile-nav-badge">{stats.active}</span>}
+        </button>
+
+        {/* Categories tab — opens drawer */}
+        <button
+          className={`mobile-nav-btn ${drawerOpen ? "active" : ""}`}
+          onClick={() => setDrawerOpen((p) => !p)}
+        >
+          <span className="mobile-nav-icon">🗂</span>
+          <span className="mobile-nav-label">Categories</span>
+        </button>
+
+        {/* Done tab */}
+        <button
+          className={`mobile-nav-btn ${filter === "completed" && !drawerOpen ? "active" : ""}`}
+          onClick={() => { setFilter("completed"); setDrawerOpen(false); }}
+        >
+          <span className="mobile-nav-icon">✅</span>
+          <span className="mobile-nav-label">Done</span>
+        </button>
+      </nav>
+
+      {/* ============================================================
+          MOBILE CATEGORY DRAWER (slide up sheet)
+          Appears when user taps "Categories" in bottom nav
+          ============================================================ */}
+      {drawerOpen && (
+        // Backdrop — tap outside to close
+        <div className="drawer-backdrop" onClick={() => setDrawerOpen(false)}>
+          <div
+            className="category-drawer"
+            // Stop click from bubbling to backdrop
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="drawer-handle" />
+            <p className="drawer-title">Categories</p>
+
+            {/* Progress inside drawer */}
+            <div className="drawer-progress">
+              <div className="mobile-progress-row">
+                <span className="mobile-progress-label">{stats.progress}% complete</span>
+                <span className="mobile-progress-sub">{stats.completed} of {stats.total} done</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${stats.progress}%` }} />
+              </div>
+            </div>
+
+            {/* Overdue warning */}
+            {stats.overdue > 0 && (
+              <div className="overdue-banner">
+                ⚠ {stats.overdue} task{stats.overdue > 1 ? "s" : ""} overdue
+              </div>
+            )}
+
+            {/* Category grid */}
+            <div className="drawer-categories">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  className={`drawer-cat-btn ${activeCategory === cat.id ? "active" : ""}`}
+                  onClick={() => handleMobileCategorySelect(cat.id)}
+                >
+                  <span className="drawer-cat-icon">{cat.icon}</span>
+                  <span className="drawer-cat-label">{cat.label}</span>
+                  <span className="drawer-cat-count">{categoryCounts[cat.id] || 0}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
